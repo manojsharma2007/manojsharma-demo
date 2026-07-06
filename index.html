@@ -564,3 +564,336 @@
                 const rayIndex = i % 8;
                 const angle = rayIndex * Math.PI / 4;
                 const distance = 5.0 + Math.random() * 23.0;
+                x = distance * Math.cos(angle) + (Math.random() - 0.5) * 0.6;
+                y = distance * Math.sin(angle) + (Math.random() - 0.5) * 0.6;
+                z = (Math.random() - 0.5) * 1.5;
+
+                // White-hot magenta energy streaks
+                r = 1.0;
+                g = 0.7 + Math.random() * 0.3;
+                b = 1.0;
+                s = 1.8;
+            }
+
+            return { x, y, z, r, g, b, s };
+        }
+
+        // 4. Akatsuki Pose: Three-Bladed Mangekyō Sharingan Pinwheel
+        function getMangekyo(i) {
+            const total = COUNT;
+            const segment = i / total;
+
+            if (segment < 0.22) {
+                // Solid center pitch black pupil core surrounded by thin red ring
+                const r = Math.random() * 4;
+                const theta = Math.random() * Math.PI * 2;
+                return { x: r * Math.cos(theta), y: r * Math.sin(theta), z: 0, r: 0.05, g: 0.0, b: 0.0, s: 1.6 };
+            } else if (segment < 0.68) {
+                // Three sweeping curved blades of Itachi's specific Mangekyō
+                const blade = i % 3;
+                const baseAngle = blade * (Math.PI * 2 / 3);
+                const t = Math.random(); // blade progression
+
+                // Blade curve formula (logarithmic spiral segment)
+                const theta = baseAngle + (t * 1.6);
+                const radius = 3.5 + (t * 15.5);
+                return {
+                    x: radius * Math.cos(theta),
+                    y: radius * Math.sin(theta),
+                    z: (Math.random() - 0.5) * 1.5,
+                    r: 0.9, g: 0.0, b: 0.08, s: 2.3
+                };
+            } else {
+                // Heavy Outer Boundary Iris framing ring
+                const theta = Math.random() * Math.PI * 2;
+                const radius = 21 + (Math.random() - 0.5) * 1.2;
+                return { x: radius * Math.cos(theta), y: radius * Math.sin(theta), z: 0, r: 0.85, g: 0.0, b: 0.0, s: 1.5 };
+            }
+        }
+
+        // Default Neutral ash mist orbit
+        function getNeutral(i) {
+            if (i < COUNT * 0.12) {
+                const r = 12 + Math.random() * 18;
+                const t = Math.random() * 6.28;
+                const ph = Math.random() * 3.14;
+                return {
+                    x: r * Math.sin(ph) * Math.cos(t),
+                    y: r * Math.sin(ph) * Math.sin(t),
+                    z: r * Math.cos(ph),
+                    r: 0.8, g: 0.08, b: 0.1, s: 1.2
+                };
+            } else {
+                // Silent idle background mist
+                const r = 25 + Math.random() * 20;
+                const t = Math.random() * 6.28;
+                return {
+                    x: r * Math.cos(t),
+                    y: (Math.random() - 0.5) * 15,
+                    z: r * Math.sin(t),
+                    r: 0.08, g: 0.02, b: 0.02, s: 0.6
+                };
+            }
+        }
+
+        // Initialize Particle Arrays starting in Neutral state
+        for (let i = 0; i < COUNT; i++) {
+            const p = getNeutral(i);
+            positions[i * 3] = p.x; positions[i * 3 + 1] = p.y; positions[i * 3 + 2] = p.z;
+            colors[i * 3] = p.r; colors[i * 3 + 1] = p.g; colors[i * 3 + 2] = p.b;
+            sizes[i] = p.s;
+
+            targetPositions[i * 3] = p.x; targetPositions[i * 3 + 1] = p.y; targetPositions[i * 3 + 2] = p.z;
+            targetColors[i * 3] = p.r; targetColors[i * 3 + 1] = p.g; targetColors[i * 3 + 2] = p.b;
+            targetSizes[i] = p.s;
+        }
+
+        // --- State Controller ---
+        let currentTech = 'neutral';
+        let shakeIntensity = 0;
+        let transitionSpeed = 0.1; // Slower, dramatic morphs
+        const videoElement = document.querySelector('.input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        let glowColor = '#ff2222';
+        let lastInteractionSource = 'camera';
+
+        // Track active state (works seamlessly for camera or manual click)
+        function updateState(tech) {
+            if (currentTech === tech) return;
+            currentTech = tech;
+
+            // Flash screen dramatically on sharingan/jutsu awakening
+            const overlay = document.getElementById('eye-overlay');
+            overlay.classList.remove('laser-flash');
+            void overlay.offsetWidth; // Trigger reflow
+            overlay.classList.add('laser-flash');
+
+            const nameEl = document.getElementById('technique-name');
+            const descEl = document.getElementById('jutsu-desc');
+
+            // Set dynamic UI highlights
+            shakeIntensity = tech !== 'neutral' ? 0.3 : 0;
+            descEl.innerText = descriptors[tech] || "";
+
+            // Sync panel buttons actively
+            document.querySelectorAll('.gesture-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`btn-${tech}`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            if (tech === 'tiger') {
+                glowColor = '#ff5500';
+                nameEl.innerText = "Fire Style: Fire Ball Jutsu";
+                nameEl.style.color = '#ff6600';
+                bloomPass.strength = 3.0;
+                transitionSpeed = 0.08;
+            }
+            else if (tech === 'onehanded') {
+                glowColor = '#ff0033';
+                nameEl.innerText = "Kekkei Genkai: Tsukuyomi";
+                nameEl.style.color = '#ff0055';
+                bloomPass.strength = 2.4;
+                transitionSpeed = 0.12;
+            }
+            else if (tech === 'genjutsu') {
+                glowColor = '#ff00aa';
+                nameEl.innerText = "Illusion: Genjutsu Anime Seal";
+                nameEl.style.color = '#ff00aa';
+                bloomPass.strength = 3.2; // Extra heavy glow for epic anime visual
+                transitionSpeed = 0.09;
+            }
+            else if (tech === 'akatsuki') {
+                glowColor = '#ff0000';
+                nameEl.innerText = "Mangekyō Sharingan Activated";
+                nameEl.style.color = '#ff1111';
+                bloomPass.strength = 3.5;
+                transitionSpeed = 0.06;
+            }
+            else {
+                glowColor = '#ff2222';
+                nameEl.innerText = "Chakra Neutral State";
+                nameEl.style.color = '#ff2222';
+                bloomPass.strength = 1.2;
+                transitionSpeed = 0.1;
+            }
+
+            // Apply morph calculations
+            for (let i = 0; i < COUNT; i++) {
+                let p;
+                if (tech === 'neutral') p = getNeutral(i);
+                else if (tech === 'tiger') p = getFireball(i);
+                else if (tech === 'onehanded') p = getTsukuyomi(i);
+                else if (tech === 'genjutsu') p = getGenjutsuSeal(i);
+                else if (tech === 'akatsuki') p = getMangekyo(i);
+
+                targetPositions[i * 3] = p.x; targetPositions[i * 3 + 1] = p.y; targetPositions[i * 3 + 2] = p.z;
+                targetColors[i * 3] = p.r; targetColors[i * 3 + 1] = p.g; targetColors[i * 3 + 2] = p.b;
+                targetSizes[i] = p.s;
+            }
+        }
+
+        // Expose updateState to manual UI click handler
+        window.triggerManualState = function (state) {
+            lastInteractionSource = 'manual';
+            updateState(state);
+        };
+
+        // --- MediaPipe Hand Tracking Setup & Logic ---
+        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.75, minTrackingConfidence: 0.72 });
+
+        hands.onResults((results) => {
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            let detected = 'neutral';
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const numHands = results.multiHandLandmarks.length;
+                const hand1 = results.multiHandLandmarks[0];
+
+                // Helper checking if finger is extended (pointing upward)
+                const isUp = (lm, tip, pip) => lm[tip].y < lm[pip].y;
+
+                const indexUp = isUp(hand1, 8, 6);
+                const middleUp = isUp(hand1, 12, 10);
+                const ringUp = isUp(hand1, 16, 14);
+                const pinkyUp = isUp(hand1, 20, 18);
+                const pinchDist = Math.hypot(hand1[8].x - hand1[4].x, hand1[8].y - hand1[4].y);
+
+                if (numHands === 2) {
+                    // Technique 1: Tiger Hand Seal (Both hands raised up close together)
+                    const hand2 = results.multiHandLandmarks[1];
+                    const centerDist = Math.hypot(hand1[9].x - hand2[9].x, hand1[9].y - hand2[9].y);
+                    if (centerDist < 0.45 && isUp(hand1, 8, 5) && isUp(hand2, 8, 5)) {
+                        detected = 'tiger';
+                    }
+                }
+
+                if (detected === 'neutral' && numHands === 1) {
+                    // Technique 3: Genjutsu Finger (ONLY index raised perfectly straight up)
+                    if (indexUp && !middleUp && !ringUp && !pinkyUp) {
+                        detected = 'genjutsu';
+                    }
+                    // Technique 2: One-Handed Sign (Index and Middle up together)
+                    else if (indexUp && middleUp && !ringUp && !pinkyUp) {
+                        detected = 'onehanded';
+                    }
+                    // Technique 4: Akatsuki Cloak/Ring Pose (Thumb and index pinched closely, other fingers spread)
+                    else if (pinchDist < 0.042) {
+                        detected = 'akatsuki';
+                    }
+                }
+
+                // Draw clean subtle glowing wireframes with crimson energy traces
+                results.multiHandLandmarks.forEach((lm) => {
+                    drawConnectors(canvasCtx, lm, HAND_CONNECTIONS, { color: glowColor, lineWidth: 4 });
+                    drawLandmarks(canvasCtx, lm, { color: '#ffffff', lineWidth: 1.5, radius: 2.5 });
+                });
+
+                lastInteractionSource = 'camera';
+                updateState(detected);
+            } else {
+                if (lastInteractionSource === 'camera') {
+                    updateState('neutral');
+                }
+            }
+        });
+
+        const cameraUtils = new Camera(videoElement, {
+            onFrame: async () => {
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+                await hands.send({ image: videoElement });
+            }, width: 640, height: 480
+        });
+
+        // Start video. Fail gracefully if webcam blocked or unavailable
+        cameraUtils.start().catch(() => {
+            console.log("Webcam block detected. Manual interface is active.");
+            document.getElementById('video-container').style.borderColor = 'rgba(255,255,255,0.05)';
+        });
+
+        // --- Animation & Physics Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            // Ominous screen shake when powerful jutsu is unleashed
+            if (shakeIntensity > 0) {
+                const rx = (Math.random() - 0.5) * shakeIntensity * 12;
+                const ry = (Math.random() - 0.5) * shakeIntensity * 12;
+                renderer.domElement.style.transform = `translate(${rx}px, ${ry}px)`;
+            } else {
+                renderer.domElement.style.transform = 'translate(0px, 0px)';
+            }
+
+            const pos = particles.geometry.attributes.position.array;
+            const col = particles.geometry.attributes.color.array;
+            const siz = particles.geometry.attributes.size.array;
+
+            // Smoothly interpolate positions, colors, and sizes using transition speed
+            for (let i = 0; i < COUNT * 3; i++) {
+                pos[i] += (targetPositions[i] - pos[i]) * transitionSpeed;
+                col[i] += (targetColors[i] - col[i]) * transitionSpeed;
+            }
+            for (let i = 0; i < COUNT; i++) {
+                siz[i] += (targetSizes[i] - siz[i]) * transitionSpeed;
+            }
+
+            // Apply high-frequency vibration/noise for Genjutsu (Anime Superpower Vibration)
+            if (currentTech === 'genjutsu') {
+                const vib = 0.95; // Vibrant high-intensity anime vibration
+                for (let i = 0; i < COUNT; i++) {
+                    pos[i * 3] += (Math.random() - 0.5) * vib;
+                    pos[i * 3 + 1] += (Math.random() - 0.5) * vib;
+                    pos[i * 3 + 2] += (Math.random() - 0.5) * vib * 0.5;
+                }
+            }
+
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.geometry.attributes.color.needsUpdate = true;
+            particles.geometry.attributes.size.needsUpdate = true;
+
+            // --- Custom Rotational Mechanics for Itachi's Jutsu ---
+            if (currentTech === 'tiger') {
+                // Rapid upward rising flame tornado spin
+                particles.rotation.y += 0.08;
+                particles.rotation.z += 0.01;
+            }
+            else if (currentTech === 'onehanded') {
+                // Tsukuyomi deep pulse expansion rotation
+                particles.rotation.z -= 0.03;
+                particles.rotation.y = Math.sin(elapsedTime * 0.5) * 0.15;
+            }
+            else if (currentTech === 'genjutsu') {
+                // Majestic spinning Japanese magic seal (flat orientation)
+                particles.rotation.set(0, 0, 0);
+                particles.rotation.z = elapsedTime * 0.8;
+            }
+            else if (currentTech === 'akatsuki') {
+                // Majestic Sharingan ocular pinwheel rotation (perfectly flat orientation)
+                particles.rotation.set(0, 0, 0);
+                particles.rotation.z = -elapsedTime * 1.5;
+            }
+            else {
+                // Slow, calming idle orbit
+                particles.rotation.y += 0.003;
+                particles.rotation.x = Math.sin(elapsedTime * 0.2) * 0.05;
+            }
+
+            composer.render();
+        }
+
+        // Ensure loop starts seamlessly
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
